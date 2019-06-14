@@ -1,0 +1,10 @@
+---
+applications:
+  - name: project-name
+    path: ./
+    buildpacks:
+      - sdk-for-nodejs
+    memory: 512M
+    instances: 1
+    env:
+      use_ssl: true
