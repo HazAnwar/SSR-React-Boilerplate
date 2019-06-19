@@ -56,6 +56,8 @@ if (process.env.NODE_ENV === 'production') {
     choosePort,
     prepareUrls
   } = require('react-dev-utils/WebpackDevServerUtils');
+  const https = require('https');
+  const fs = require('fs');
 
   const { applyDevMiddleware } = require('./utils/devMiddleware');
   const { purgeCacheOnChange } = require('./utils/purgeCacheOnChange');
@@ -88,27 +90,68 @@ if (process.env.NODE_ENV === 'production') {
       return;
     }
 
-    const urls = prepareUrls('http', HOST, port);
+    /* cd to server folder and execute the following
 
-    server.listen(port, HOST, err => {
-      if (err) {
-        return console.log(err);
+    openssl req -nodes -new -x509 -keyout server.key -out server.cert
+
+    this will create https certificates if they don't exist already for local HTTPS */
+
+    try {
+      if (
+        fs.existsSync(path.resolve(__dirname, '../server/server.key')) &&
+        fs.existsSync(path.resolve(__dirname, '../server/server.cert'))
+      ) {
+        const privateKey = fs.readFileSync(
+          path.resolve(__dirname, '../server/server.key'),
+          'utf8'
+        );
+        const certificate = fs.readFileSync(
+          path.resolve(__dirname, '../server/server.cert'),
+          'utf8'
+        );
+        const urls = prepareUrls('https', HOST, port);
+        const httpsServer = https.createServer(
+          { key: privateKey, cert: certificate },
+          server
+        );
+
+        httpsServer.listen(port, HOST, err => {
+          if (err) {
+            return console.log(err);
+          }
+          if (isInteractive) {
+            clearConsole();
+          }
+          console.log(chalk.white('\n\tStarting dev server...'));
+          openBrowser(urls.localUrlForBrowser);
+          console.log(
+            chalk.blue(`
+              Running locally at ${urls.localUrlForBrowser}
+              Running on your network at ${urls.lanUrlForConfig}:${port}
+            `)
+          );
+        });
+      } else {
+        const urls = prepareUrls('http', HOST, port);
+        server.listen(port, HOST, err => {
+          if (err) {
+            return console.log(err);
+          }
+          if (isInteractive) {
+            clearConsole();
+          }
+          console.log(chalk.white('\n\tStarting dev server...'));
+          openBrowser(urls.localUrlForBrowser);
+          console.log(
+            chalk.blue(`
+              Running locally at ${urls.localUrlForBrowser}
+              Running on your network at ${urls.lanUrlForConfig}:${port}
+            `)
+          );
+        });
       }
-
-      if (isInteractive) {
-        clearConsole();
-      }
-
-      console.log(chalk.white('\n\tStarting dev server...'));
-
-      openBrowser(urls.localUrlForBrowser);
-
-      console.log(
-        chalk.blue(`
-          Running locally at ${urls.localUrlForBrowser}
-          Running on your network at ${urls.lanUrlForConfig}:${port}
-        `)
-      );
-    });
+    } catch (err) {
+      console.error(err);
+    }
   });
 }
